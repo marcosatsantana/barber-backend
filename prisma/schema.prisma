@@ -1,0 +1,258 @@
+// datasource e generator permanecem os mesmos
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Modelos Principais ---
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  phone        String? /// ADICIONADO: Telefone para contato e notificações.
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(CUSTOMER)
+  avatarUrl    String? /// ADICIONADO: URL da foto de perfil do usuário.
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  ownedBarbershops Barbershop[]  @relation("OwnerBarbershops")
+  barberProfile    Barber? /// Um usuário pode ser um barbeiro.
+  appointments     Appointment[]
+  reviews          Review[]
+
+  @@map("users")
+}
+
+model Barbershop {
+  id          String  @id @default(uuid())
+  name        String
+  description String? /// ADICIONADO: Uma descrição sobre a barbearia.
+  phone       String? /// ADICIONADO: Telefone principal da barbearia.
+  whatsapp    String? /// ADICIONADO: WhatsApp para contato.
+
+  // Endereço Estruturado para buscas e filtros
+  street       String? /// ADICIONADO: Rua
+  neighborhood String? /// ADICIONADO: Bairro
+  city         String? /// ADICIONADO: Cidade
+  zipCode      String? /// ADICIONADO: CEP
+
+  latitude      Decimal
+  longitude     Decimal
+  coverImageUrl String? /// ADICIONADO: Imagem de capa principal.
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  owner   User   @relation("OwnerBarbershops", fields: [ownerId], references: [id])
+  ownerId String @map("owner_id")
+
+  images       Media[] /// ADICIONADO: Galeria de imagens.
+  barbers      Barber[]
+  services     Service[]
+  reviews      Review[]
+  workingHours OperatingHours[] /// ADICIONADO: Horários de funcionamento.
+  features     BarbershopFeature[] /// ADICIONADO: Comodidades (Wi-Fi, etc.)
+
+  @@map("barbershops")
+}
+
+model Barber {
+  id  String  @id @default(uuid())
+  bio String? /// ADICIONADO: Pequena biografia do barbeiro.
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique @map("user_id") /// Um usuário só pode ter um perfil de barbeiro.
+
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  barbershopId String     @map("barbershop_id")
+
+  appointments Appointment[]
+  specialties  BarberSpecialty[] /// ADICIONADO: Especialidades do barbeiro.
+  exceptions   BarberException[] /// ADICIONADO: Exceções de disponibilidade do barbeiro.
+
+  @@map("barbers")
+}
+
+model Service {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  durationMin Int     @map("duration_min")
+  priceCents  Int     @map("price_cents")
+  isActive    Boolean @default(true) /// ADICIONADO: Para poder desativar um serviço.
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  barbershopId String     @map("barbershop_id")
+
+  appointments Appointment[]
+  reviews      Review[]
+
+  @@map("services")
+}
+
+model Review {
+  id      String  @id @default(uuid())
+  rating  Int
+  comment String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @map("user_id")
+
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  barbershopId String     @map("barbershop_id")
+
+  /// ADICIONADO: Relação opcional com o agendamento para avaliações verificadas.
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  appointmentId String?      @unique @map("appointment_id")
+  Service       Service?     @relation(fields: [serviceId], references: [id])
+  serviceId     String?
+
+  @@map("reviews")
+}
+
+// --- ADICIONADO: Modelo crucial para agendamentos ---
+model Appointment {
+  id        String            @id @default(uuid())
+  startTime DateTime          @map("start_time")
+  endTime   DateTime          @map("end_time")
+  status    AppointmentStatus @default(SCHEDULED)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relações
+  customer   User   @relation(fields: [customerId], references: [id])
+  customerId String @map("customer_id")
+
+  barber   Barber @relation(fields: [barberId], references: [id])
+  barberId String @map("barber_id")
+
+  service   Service @relation(fields: [serviceId], references: [id])
+  serviceId String  @map("service_id")
+
+  review Review? /// Uma avaliação pode ser feita para este agendamento.
+
+  @@map("appointments")
+}
+
+// --- ADICIONADO: Modelos de Suporte ---
+
+/// Horários de funcionamento padrão da barbearia
+model OperatingHours {
+  id        String  @id @default(uuid())
+  dayOfWeek Int     @map("day_of_week") // 0 = Domingo, 1 = Segunda, etc.
+  openTime  String  @map("open_time") // Formato "HH:mm"
+  closeTime String  @map("close_time") // Formato "HH:mm"
+  isClosed  Boolean @default(false) @map("is_closed")
+
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  barbershopId String     @map("barbershop_id")
+
+  @@unique([barbershopId, dayOfWeek])
+  @@map("operating_hours")
+}
+
+/// Exceções de agenda do barbeiro (bloqueios ou janelas adicionais)
+model BarberException {
+  id        String   @id @default(uuid())
+  date      DateTime /// Data do dia da exceção (considerada na timezone do servidor)
+  startTime String   @map("start_time") // Formato "HH:mm"
+  endTime   String   @map("end_time")   // Formato "HH:mm"
+  isBlocked Boolean  @default(true) @map("is_blocked")
+
+  barber   Barber  @relation(fields: [barberId], references: [id])
+  barberId String  @map("barber_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([barberId, date])
+  @@map("barber_exceptions")
+}
+
+/// Galeria de imagens da barbearia
+model Media {
+  id  String @id @default(uuid())
+  url String
+
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  barbershopId String     @map("barbershop_id")
+
+  @@map("media")
+}
+
+/// Comodidades (Wi-Fi, Estacionamento, etc.)
+model Feature {
+  id   String @id @default(uuid())
+  name String @unique
+
+  barbershops BarbershopFeature[]
+
+  @@map("features")
+}
+
+model BarbershopFeature {
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  barbershopId String     @map("barbershop_id")
+  feature      Feature    @relation(fields: [featureId], references: [id])
+  featureId    String     @map("feature_id")
+
+  @@id([barbershopId, featureId])
+  @@map("barbershop_features")
+}
+
+/// Especialidades dos barbeiros
+model Specialty {
+  id   String @id @default(uuid())
+  name String @unique
+
+  barbers BarberSpecialty[]
+
+  @@map("specialties")
+}
+
+model BarberSpecialty {
+  barber      Barber    @relation(fields: [barberId], references: [id])
+  barberId    String    @map("barber_id")
+  specialty   Specialty @relation(fields: [specialtyId], references: [id])
+  specialtyId String    @map("specialty_id")
+
+  @@id([barberId, specialtyId])
+  @@map("barber_specialties")
+}
+
+// --- Enums ---
+
+/// AJUSTADO: Removido BARBER, pois um usuário agora se conecta ao modelo Barber.
+enum UserRole {
+  CUSTOMER
+  OWNER
+  ADMIN
+}
+
+/// ADICIONADO: Status para os agendamentos.
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
