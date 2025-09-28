@@ -16,6 +16,11 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
     longitude: number
     ownerId: string
     coverImageUrl?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    city?: string | null
+    state?: string | null
+    description?: string | null
   }) {
     return prisma.barbershop.create({
       data: {
@@ -25,6 +30,11 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
         longitude: data.longitude,
         ownerId: data.ownerId,
         coverImageUrl: data.coverImageUrl ?? null,
+        phone: data.phone ?? null,
+        whatsapp: data.whatsapp ?? null,
+        city: data.city ?? null,
+        state: data.state ?? null,
+        description: data.description ?? null,
       },
     })
   }
@@ -113,6 +123,7 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
         nbs.street,
         nbs.neighborhood,
         nbs.city,
+        nbs.state,
         nbs."zipCode",
         nbs.latitude, 
         nbs.longitude,

@@ -10,6 +10,11 @@ export async function createBarbershopController(req: FastifyRequest, reply: Fas
     longitude: z.coerce.number().min(-180).max(180),
     ownerId: z.string().uuid(),
     coverImageUrl: z.string().url().optional(),
+    phone: z.string().optional(),
+    whatsapp: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    description: z.string().optional(),
   })
 
   const data = bodySchema.parse(req.body)

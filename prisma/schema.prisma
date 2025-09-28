@@ -41,6 +41,7 @@ model Barbershop {
   street       String? /// ADICIONADO: Rua
   neighborhood String? /// ADICIONADO: Bairro
   city         String? /// ADICIONADO: Cidade
+  state        String? /// ADICIONADO: Estado (UF)
   zipCode      String? /// ADICIONADO: CEP
 
   latitude      Decimal

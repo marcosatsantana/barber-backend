@@ -7,6 +7,11 @@ interface CreateBarbershopRequest {
   longitude: number
   ownerId: string
   coverImageUrl?: string | null
+  phone?: string | null
+  whatsapp?: string | null
+  city?: string | null
+  state?: string | null
+  description?: string | null
 }
 
 export class CreateBarbershopUseCase {
