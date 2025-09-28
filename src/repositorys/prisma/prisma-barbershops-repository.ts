@@ -156,9 +156,27 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
       ...values,
     )
 
-    return barbershops.map((shop: any) => ({
+    // Sanitize potential BigInt/Decimal values from raw query
+    const sanitize = (row: any) => {
+      const out: any = {}
+      for (const [k, v] of Object.entries(row)) {
+        if (typeof v === 'bigint') {
+          out[k] = Number(v)
+        } else if (v && typeof v === 'object' && 'toNumber' in (v as any) && typeof (v as any).toNumber === 'function') {
+          // Prisma Decimal
+          out[k] = (v as any).toNumber()
+        } else {
+          out[k] = v as any
+        }
+      }
+      return out
+    }
+
+    const sanitized = (barbershops as any[]).map(sanitize)
+
+    return sanitized.map((shop: any) => ({
       ...shop,
-      price_from: shop.price_from ? Number(shop.price_from) : null,
+      price_from: shop.price_from !== null && shop.price_from !== undefined ? Number(shop.price_from) : null,
       averageRating: Number(shop.average_rating ?? shop.averageRating ?? 0),
       reviewCount: typeof shop.review_count !== 'undefined' ? Number(shop.review_count) : undefined,
     }))
