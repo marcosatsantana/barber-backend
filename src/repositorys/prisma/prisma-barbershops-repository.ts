@@ -15,8 +15,18 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
     latitude: number
     longitude: number
     ownerId: string
+    coverImageUrl?: string | null
   }) {
-    return prisma.barbershop.create({ data })
+    return prisma.barbershop.create({
+      data: {
+        name: data.name,
+        street: data.address,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        ownerId: data.ownerId,
+        coverImageUrl: data.coverImageUrl ?? null,
+      },
+    })
   }
 
   async findById(id: string) {

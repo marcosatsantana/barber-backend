@@ -6,6 +6,7 @@ interface CreateBarbershopRequest {
   latitude: number
   longitude: number
   ownerId: string
+  coverImageUrl?: string | null
 }
 
 export class CreateBarbershopUseCase {

@@ -20,6 +20,7 @@ export interface BarbershopsRepository {
     latitude: number
     longitude: number
     ownerId: string
+    coverImageUrl?: string | null
   }): Promise<Barbershop>
 
   findById(id: string): Promise<Barbershop | null>
