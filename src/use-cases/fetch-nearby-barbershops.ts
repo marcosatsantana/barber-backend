@@ -8,12 +8,13 @@ interface FetchNearbyBarbershopsRequest {
   priceMin?: number
   priceMax?: number
   services?: string[]
+  orderBy?: 'distance' | 'rating' | 'price' | 'popularity'
 }
 
 export class FetchNearbyBarbershopsUseCase {
   constructor(private barbershopsRepository: BarbershopsRepository) {}
 
-  async execute({ latitude, longitude, radiusInKm, ratingMin, priceMin, priceMax, services }: FetchNearbyBarbershopsRequest) {
+  async execute({ latitude, longitude, radiusInKm, ratingMin, priceMin, priceMax, services, orderBy }: FetchNearbyBarbershopsRequest) {
     const barbershops = await this.barbershopsRepository.findManyNearby({
       latitude,
       longitude,
@@ -22,6 +23,7 @@ export class FetchNearbyBarbershopsUseCase {
       priceMin,
       priceMax,
       services,
+      orderBy,
     })
     return { barbershops }
   }

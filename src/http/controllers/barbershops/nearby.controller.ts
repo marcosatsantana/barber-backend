@@ -11,9 +11,10 @@ export async function fetchNearbyBarbershopsController(req: FastifyRequest, repl
     priceMin: z.coerce.number().min(0).optional(),
     priceMax: z.coerce.number().min(0).optional(),
     services: z.string().optional(), // CSV
+    orderBy: z.enum(['distance', 'rating', 'price', 'popularity']).optional(),
   })
 
-  const { latitude, longitude, radiusInKm, ratingMin, priceMin, priceMax, services } = querySchema.parse(req.query)
+  const { latitude, longitude, radiusInKm, ratingMin, priceMin, priceMax, services, orderBy } = querySchema.parse(req.query)
   const servicesList = services ? services.split(',').map((s) => s.trim()).filter(Boolean) : undefined
 
   const useCase = makeFetchNearbyBarbershopsUseCase()
@@ -25,6 +26,7 @@ export async function fetchNearbyBarbershopsController(req: FastifyRequest, repl
     priceMin,
     priceMax,
     services: servicesList,
+    orderBy: orderBy ?? 'distance',
   })
   return reply.status(200).send({ barbershops })
 }

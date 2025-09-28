@@ -24,7 +24,7 @@ export interface BarbershopsRepository {
 
   findById(id: string): Promise<Barbershop | null>
 
-  findManyNearby(params: NearbySearchParams): Promise<Barbershop[]>
+  findManyNearby(params: NearbySearchParams & { orderBy?: 'distance' | 'rating' | 'price' | 'popularity' }): Promise<Barbershop[]>
 }
 
 

@@ -6,6 +6,7 @@ export type BarbershopWithDetails = Barbershop & {
   distance_in_km: number
   price_from: number | null
   averageRating: number
+  review_count?: number
 }
 export class PrismaBarbershopsRepository implements BarbershopsRepository {
   async create(data: {
@@ -37,10 +38,10 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
     })
   }
 
-async findManyNearby(
-    params: NearbySearchParams,
+  async findManyNearby(
+    params: NearbySearchParams & { orderBy?: 'distance' | 'rating' | 'price' | 'popularity' },
   ): Promise<BarbershopWithDetails[]> {
-    const { latitude, longitude, radiusInKm = 5, ratingMin, priceMin, priceMax, services } = params
+    const { latitude, longitude, radiusInKm = 5, ratingMin, priceMin, priceMax, services, orderBy = 'distance' } = params
 
     const sqlParts: string[] = []
     const values: any[] = []
@@ -71,7 +72,8 @@ async findManyNearby(
       SELECT 
         nbs.*,
         MIN(s.price_cents) AS price_from,
-        COALESCE(ROUND(AVG(r.rating), 1), 0) AS "averageRating"
+        COALESCE(ROUND(AVG(r.rating), 1), 0) AS average_rating,
+        COUNT(r.id) AS review_count
       FROM nearby_barbershops nbs
       LEFT JOIN services s ON nbs.id = s.barbershop_id
       LEFT JOIN reviews r ON nbs.id = r.barbershop_id
@@ -133,7 +135,19 @@ async findManyNearby(
     }
 
     // Order
-    sqlParts.push('ORDER BY nbs.distance_in_km')
+    switch (orderBy) {
+      case 'rating':
+        sqlParts.push('ORDER BY COALESCE(AVG(r.rating), 0) DESC, nbs.distance_in_km ASC')
+        break
+      case 'price':
+        sqlParts.push('ORDER BY MIN(s.price_cents) ASC NULLS LAST, nbs.distance_in_km ASC')
+        break
+      case 'popularity':
+        sqlParts.push('ORDER BY COUNT(r.id) DESC, nbs.distance_in_km ASC')
+        break
+      default:
+        sqlParts.push('ORDER BY nbs.distance_in_km ASC')
+    }
 
     const sql = sqlParts.join('\n') + ';'
 
@@ -142,10 +156,11 @@ async findManyNearby(
       ...values,
     )
 
-    return barbershops.map((shop) => ({
+    return barbershops.map((shop: any) => ({
       ...shop,
       price_from: shop.price_from ? Number(shop.price_from) : null,
-      averageRating: Number(shop.averageRating),
+      averageRating: Number(shop.average_rating ?? shop.averageRating ?? 0),
+      reviewCount: typeof shop.review_count !== 'undefined' ? Number(shop.review_count) : undefined,
     }))
   }
 
