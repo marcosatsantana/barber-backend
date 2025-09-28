@@ -7,6 +7,10 @@ export type Coordinates = {
 
 export type NearbySearchParams = Coordinates & {
   radiusInKm?: number
+  ratingMin?: number
+  priceMin?: number
+  priceMax?: number
+  services?: string[]
 }
 
 export interface BarbershopsRepository {

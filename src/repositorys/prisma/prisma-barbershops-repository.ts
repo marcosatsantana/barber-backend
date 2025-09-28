@@ -40,11 +40,13 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
 async findManyNearby(
     params: NearbySearchParams,
   ): Promise<BarbershopWithDetails[]> {
-    const { latitude, longitude, radiusInKm = 5 } = params
+    const { latitude, longitude, radiusInKm = 5, ratingMin, priceMin, priceMax, services } = params
 
-    const barbershops = await prisma.$queryRawUnsafe<BarbershopWithDetails[]>(
-      `
-      -- CTE para primeiro encontrar as barbearias próximas e calcular a distância
+    const sqlParts: string[] = []
+    const values: any[] = []
+
+    // Base CTE for nearby
+    sqlParts.push(`
       WITH nearby_barbershops AS (
         SELECT 
           bs.*,
@@ -60,7 +62,12 @@ async findManyNearby(
             sin(radians($1)) * sin(radians(CAST(bs.latitude AS double precision)))
           )) <= $3
       )
-      -- Query final que junta as barbearias com serviços E avaliações
+    `)
+
+    values.push(latitude, longitude, radiusInKm)
+
+    // Start main SELECT
+    sqlParts.push(`
       SELECT 
         nbs.*,
         MIN(s.price_cents) AS price_from,
@@ -68,6 +75,23 @@ async findManyNearby(
       FROM nearby_barbershops nbs
       LEFT JOIN services s ON nbs.id = s.barbershop_id
       LEFT JOIN reviews r ON nbs.id = r.barbershop_id
+    `)
+
+    // WHERE filters (applied on joined rows)
+    const whereClauses: string[] = []
+    if (services && services.length > 0) {
+      const startIndex = values.length + 1
+      const placeholders = services.map((_, idx) => `$${startIndex + idx}`)
+      whereClauses.push(`s.name IN (${placeholders.join(', ')})`)
+      values.push(...services)
+    }
+
+    if (whereClauses.length > 0) {
+      sqlParts.push('WHERE ' + whereClauses.join(' AND '))
+    }
+
+    // Group by
+    sqlParts.push(`
       GROUP BY 
         nbs.id, 
         nbs.name, 
@@ -77,22 +101,47 @@ async findManyNearby(
         nbs.street,
         nbs.neighborhood,
         nbs.city,
-        nbs."zipCode", -- CORRIGIDO
+        nbs."zipCode",
         nbs.latitude, 
         nbs.longitude,
-        nbs."coverImageUrl", -- CORRIGIDO
+        nbs."coverImageUrl",
         nbs.created_at, 
         nbs.updated_at, 
         nbs.owner_id, 
         nbs.distance_in_km
-      ORDER BY nbs.distance_in_km;
-      `,
-      latitude,
-      longitude,
-      radiusInKm,
+    `)
+
+    // HAVING filters for aggregates
+    const havingClauses: string[] = []
+    if (typeof ratingMin === 'number') {
+      const idx = values.length + 1
+      havingClauses.push(`COALESCE(AVG(r.rating), 0) >= $${idx}`)
+      values.push(ratingMin)
+    }
+    if (typeof priceMin === 'number') {
+      const idx = values.length + 1
+      havingClauses.push(`MIN(s.price_cents) >= $${idx}`)
+      values.push(Math.round(priceMin * 100))
+    }
+    if (typeof priceMax === 'number') {
+      const idx = values.length + 1
+      havingClauses.push(`MIN(s.price_cents) <= $${idx}`)
+      values.push(Math.round(priceMax * 100))
+    }
+    if (havingClauses.length > 0) {
+      sqlParts.push('HAVING ' + havingClauses.join(' AND '))
+    }
+
+    // Order
+    sqlParts.push('ORDER BY nbs.distance_in_km')
+
+    const sql = sqlParts.join('\n') + ';'
+
+    const barbershops = await prisma.$queryRawUnsafe<BarbershopWithDetails[]>(
+      sql,
+      ...values,
     )
 
-    // Garante que os tipos de dados retornados sejam números
     return barbershops.map((shop) => ({
       ...shop,
       price_from: shop.price_from ? Number(shop.price_from) : null,

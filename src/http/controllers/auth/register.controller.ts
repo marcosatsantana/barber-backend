@@ -15,7 +15,7 @@ export async function registerController(req: FastifyRequest, reply: FastifyRepl
 
     const useCase = makeRegisterUserUseCase()
     const { user } = await useCase.execute({ name, email, password, phone })
-
+    const token = await reply.jwtSign({ sub: user.id, role: user.role }, { expiresIn: '7d' })
     const safeUser = {
       id: user.id,
       name: user.name,
@@ -25,7 +25,7 @@ export async function registerController(req: FastifyRequest, reply: FastifyRepl
       avatarUrl: user.avatarUrl,
     }
 
-    return reply.status(201).send({ user: safeUser })
+    return reply.status(201).send({ user: safeUser, token })
   } catch (error) {
     if (error instanceof Error && error.message.includes('E-mail')) {
       return reply.status(409).send({ message: 'E-mail já está em uso.' })
