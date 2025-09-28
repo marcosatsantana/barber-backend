@@ -2,7 +2,7 @@ import Fastify from 'fastify'
 import fastifyJwt from '@fastify/jwt'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
-import fastifyStatic from '@fastify/static'
+import { fastifyStatic } from '@fastify/static'
 import path from 'path'
 import { appRoutes } from './http/route'
 
