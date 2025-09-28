@@ -16,7 +16,8 @@ export function buildApp() {
 
   // CORS plugin
   app.register(cors, {
-    origin: true, // Reflete a origem da requisição
+    origin: '*', // Em produção, restrinja para o seu domínio: 'https://meu-frontend.com'
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   })
 
   // Multipart for file uploads
