@@ -1,5 +1,6 @@
 import Fastify from 'fastify'
 import fastifyJwt from '@fastify/jwt'
+import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
@@ -11,6 +12,11 @@ export function buildApp() {
   // JWT plugin
   app.register(fastifyJwt, {
     secret: process.env.JWT_SECRET || 'dev-secret',
+  })
+
+  // CORS plugin
+  app.register(cors, {
+    origin: true, // Reflete a origem da requisição
   })
 
   // Multipart for file uploads
@@ -26,4 +32,3 @@ export function buildApp() {
   app.register(appRoutes)
   return app
 }
-
