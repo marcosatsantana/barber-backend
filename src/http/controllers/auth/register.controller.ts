@@ -16,7 +16,16 @@ export async function registerController(req: FastifyRequest, reply: FastifyRepl
     const useCase = makeRegisterUserUseCase()
     const { user } = await useCase.execute({ name, email, password, phone })
 
-    return reply.status(201).send({ user: { id: user.id, name: user.name, email: user.email, role: user.role } })
+    const safeUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+    }
+
+    return reply.status(201).send({ user: safeUser })
   } catch (error) {
     if (error instanceof Error && error.message.includes('E-mail')) {
       return reply.status(409).send({ message: 'E-mail já está em uso.' })

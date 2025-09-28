@@ -13,10 +13,19 @@ export async function loginController(req: FastifyRequest, reply: FastifyReply) 
 
     const useCase = makeAuthenticateUserUseCase()
     const { user } = await useCase.execute({ email, password })
-    const { passwordHash, createdAt, updatedAt, ...userWithoutPassword } = user
 
     const token = await reply.jwtSign({ sub: user.id, role: user.role }, { expiresIn: '7d' })
-    return reply.send({  user: userWithoutPassword, token })
+
+    const safeUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+    }
+
+    return reply.send({ user: safeUser, token })
   } catch (_error) {
     return reply.status(401).send({ message: 'Credenciais inválidas.' })
   }
