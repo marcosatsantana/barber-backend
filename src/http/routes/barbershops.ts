@@ -5,9 +5,13 @@ import { fetchNearbyBarbershopsController } from '../controllers/barbershops/nea
 import { getBarbersFromShopController } from '../controllers/barbershops/get-barbers.controller'
 import { getBarbershopReviewsController } from '../controllers/barbershops/get-reviews.controller'
 import { ensuredOwner } from '../middlewares/ensured-owner'
+import { updateBarbershopFeaturesController } from '../controllers/barbershops/update-features.controller'
+import { updateBarbershopServicesController } from '../controllers/barbershops/update-services.controller'
 
 export async function barbershopsRoutes(app: FastifyInstance) {
   app.post('/', { preHandler: [ensuredOwner] }, createBarbershopController)
+  app.put('/:id/features', { preHandler: [ensuredOwner] }, updateBarbershopFeaturesController)
+  app.put('/:id/services', { preHandler: [ensuredOwner] }, updateBarbershopServicesController)
   app.get('/nearby', fetchNearbyBarbershopsController)
   app.get('/:id', getBarbershopController)
   app.get('/:id/barbers', getBarbersFromShopController)

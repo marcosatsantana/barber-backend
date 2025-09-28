@@ -11,6 +11,7 @@ interface CreateBarbershopRequest {
   whatsapp?: string | null
   city?: string | null
   state?: string | null
+  zipCode?: string | null
   description?: string | null
 }
 
