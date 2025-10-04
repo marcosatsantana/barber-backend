@@ -36,5 +36,9 @@ export async function ownerCreateBarberController(req: FastifyRequest, reply: Fa
 
   const useCase = makeCreateBarberUseCase()
   const { barber } = await useCase.execute({ userId: resolvedUserId!, barbershopId })
+
+  // Atualiza o role do usuário para BARBER
+  await prisma.user.update({ where: { id: resolvedUserId! }, data: { role: 'BARBER' as any } })
+
   return reply.status(201).send({ barber })
 }

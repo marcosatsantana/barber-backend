@@ -245,6 +245,7 @@ model BarberSpecialty {
 /// AJUSTADO: Removido BARBER, pois um usuário agora se conecta ao modelo Barber.
 enum UserRole {
   CUSTOMER
+  BARBER
   OWNER
   ADMIN
 }
