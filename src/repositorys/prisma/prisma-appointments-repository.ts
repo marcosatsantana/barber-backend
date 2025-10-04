@@ -39,6 +39,44 @@ export class PrismaAppointmentsRepository implements AppointmentsRepository {
     })
     return appointments
   }
-}
 
+  async findByBarberId(barberId: string) {
+    const appointments = await prisma.appointment.findMany({
+      where: { barberId },
+      include: {
+        customer: { select: { id: true, name: true, email: true, phone: true } },
+        service: { select: { id: true, name: true, durationMin: true, priceCents: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    })
+    return appointments as any
+  }
+
+  async findByBarbershopOwnerId(ownerId: string) {
+    const appointments = await prisma.appointment.findMany({
+      where: { barber: { barbershop: { ownerId } } },
+      include: {
+        customer: { select: { id: true, name: true, email: true, phone: true } },
+        service: { select: { id: true, name: true, durationMin: true, priceCents: true } },
+        barber: {
+          select: {
+            id: true,
+            user: { select: { id: true, name: true, email: true } },
+            barbershop: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { startTime: 'desc' },
+    })
+    return appointments as any
+  }
+
+  async updateStatus(appointmentId: string, status: string) {
+    const appointment = await prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { status: status as any },
+    })
+    return appointment
+  }
+}
 
