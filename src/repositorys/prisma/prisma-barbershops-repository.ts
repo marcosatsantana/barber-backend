@@ -7,6 +7,8 @@ export type BarbershopWithDetails = Barbershop & {
   price_from: number | null
   averageRating: number
   review_count?: number
+  is_open?: boolean
+  open_until?: string | null
 }
 export class PrismaBarbershopsRepository implements BarbershopsRepository {
   async create(data: {
@@ -105,7 +107,54 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
         ), 1), 0) AS average_rating,
         (
           SELECT COUNT(*) FROM reviews r WHERE r.barbershop_id = nbs.id
-        ) AS review_count
+        ) AS review_count,
+        -- Calculate open status
+        CASE 
+          WHEN EXISTS (
+            SELECT 1 FROM operating_hours oh 
+            WHERE oh.barbershop_id = nbs.id 
+            AND oh.day_of_week = EXTRACT(DOW FROM NOW())::int
+            AND NOT oh.is_closed
+            AND (
+              TO_NUMBER(SPLIT_PART(oh.open_time, ':', 1), '99') * 60 + 
+              TO_NUMBER(SPLIT_PART(oh.open_time, ':', 2), '99')
+            ) <= (
+              EXTRACT(HOUR FROM NOW()) * 60 + 
+              EXTRACT(MINUTE FROM NOW())
+            )
+            AND (
+              TO_NUMBER(SPLIT_PART(oh.close_time, ':', 1), '99') * 60 + 
+              TO_NUMBER(SPLIT_PART(oh.close_time, ':', 2), '99')
+            ) > (
+              EXTRACT(HOUR FROM NOW()) * 60 + 
+              EXTRACT(MINUTE FROM NOW())
+            )
+          ) THEN true
+          ELSE false
+        END AS is_open,
+        -- Get open until time
+        (
+          SELECT oh.close_time 
+          FROM operating_hours oh 
+          WHERE oh.barbershop_id = nbs.id 
+          AND oh.day_of_week = EXTRACT(DOW FROM NOW())::int
+          AND NOT oh.is_closed
+          AND (
+            TO_NUMBER(SPLIT_PART(oh.open_time, ':', 1), '99') * 60 + 
+            TO_NUMBER(SPLIT_PART(oh.open_time, ':', 2), '99')
+          ) <= (
+            EXTRACT(HOUR FROM NOW()) * 60 + 
+            EXTRACT(MINUTE FROM NOW())
+          )
+          AND (
+            TO_NUMBER(SPLIT_PART(oh.close_time, ':', 1), '99') * 60 + 
+            TO_NUMBER(SPLIT_PART(oh.close_time, ':', 2), '99')
+          ) > (
+            EXTRACT(HOUR FROM NOW()) * 60 + 
+            EXTRACT(MINUTE FROM NOW())
+          )
+          LIMIT 1
+        ) AS open_until
       FROM nearby_barbershops nbs
     `)
 
@@ -202,6 +251,8 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
       price_from: shop.price_from !== null && shop.price_from !== undefined ? Number(shop.price_from) : null,
       averageRating: Number(shop.average_rating ?? shop.averageRating ?? 0),
       reviewCount: typeof shop.review_count !== 'undefined' ? Number(shop.review_count) : undefined,
+      isOpen: shop.is_open !== undefined ? Boolean(shop.is_open) : undefined,
+      openUntil: shop.open_until !== undefined ? shop.open_until : undefined,
     }))
 
     const total = countRows?.[0]?.total ?? items.length
@@ -236,7 +287,54 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
           SELECT MIN(s.price_cents) FROM services s WHERE s.barbershop_id = nbs.id
         ) AS price_from,
         COALESCE(ROUND((SELECT AVG(r.rating)::numeric FROM reviews r WHERE r.barbershop_id = nbs.id), 1), 0) AS average_rating,
-        (SELECT COUNT(*) FROM reviews r WHERE r.barbershop_id = nbs.id) AS review_count
+        (SELECT COUNT(*) FROM reviews r WHERE r.barbershop_id = nbs.id) AS review_count,
+        -- Calculate open status
+        CASE 
+          WHEN EXISTS (
+            SELECT 1 FROM operating_hours oh 
+            WHERE oh.barbershop_id = nbs.id 
+            AND oh.day_of_week = EXTRACT(DOW FROM NOW())::int
+            AND NOT oh.is_closed
+            AND (
+              TO_NUMBER(SPLIT_PART(oh.open_time, ':', 1), '99') * 60 + 
+              TO_NUMBER(SPLIT_PART(oh.open_time, ':', 2), '99')
+            ) <= (
+              EXTRACT(HOUR FROM NOW()) * 60 + 
+              EXTRACT(MINUTE FROM NOW())
+            )
+            AND (
+              TO_NUMBER(SPLIT_PART(oh.close_time, ':', 1), '99') * 60 + 
+              TO_NUMBER(SPLIT_PART(oh.close_time, ':', 2), '99')
+            ) > (
+              EXTRACT(HOUR FROM NOW()) * 60 + 
+              EXTRACT(MINUTE FROM NOW())
+            )
+          ) THEN true
+          ELSE false
+        END AS is_open,
+        -- Get open until time
+        (
+          SELECT oh.close_time 
+          FROM operating_hours oh 
+          WHERE oh.barbershop_id = nbs.id 
+          AND oh.day_of_week = EXTRACT(DOW FROM NOW())::int
+          AND NOT oh.is_closed
+          AND (
+            TO_NUMBER(SPLIT_PART(oh.open_time, ':', 1), '99') * 60 + 
+            TO_NUMBER(SPLIT_PART(oh.open_time, ':', 2), '99')
+          ) <= (
+            EXTRACT(HOUR FROM NOW()) * 60 + 
+            EXTRACT(MINUTE FROM NOW())
+          )
+          AND (
+            TO_NUMBER(SPLIT_PART(oh.close_time, ':', 1), '99') * 60 + 
+            TO_NUMBER(SPLIT_PART(oh.close_time, ':', 2), '99')
+          ) > (
+            EXTRACT(HOUR FROM NOW()) * 60 + 
+            EXTRACT(MINUTE FROM NOW())
+          )
+          LIMIT 1
+        ) AS open_until
       FROM nearby_barbershops nbs
       WHERE (
         nbs.name ILIKE $4 OR 
@@ -267,4 +365,3 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
     return (rows as any[]).map(sanitize)
   }
 }
-
