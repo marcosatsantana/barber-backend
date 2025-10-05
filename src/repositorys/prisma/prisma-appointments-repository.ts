@@ -71,6 +71,24 @@ export class PrismaAppointmentsRepository implements AppointmentsRepository {
     return appointments as any
   }
 
+  async findById(appointmentId: string) {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        customer: { select: { id: true, name: true, email: true, phone: true } },
+        service: { select: { id: true, name: true, durationMin: true, priceCents: true } },
+        barber: {
+          select: {
+            id: true,
+            user: { select: { id: true, name: true, email: true } },
+            barbershop: { select: { id: true, name: true } },
+          },
+        },
+      },
+    })
+    return appointment as any
+  }
+
   async findByBarberPaged(params: { barberId: string; page: number; perPage: number; status?: 'SCHEDULED' | 'CONFIRMED' | 'CANCELLED'; dateFrom?: Date; dateTo?: Date; }) {
     const { barberId, page, perPage, status, dateFrom, dateTo } = params
     const where: any = { barberId }
@@ -122,6 +140,42 @@ export class PrismaAppointmentsRepository implements AppointmentsRepository {
     return { items: items as any, total }
   }
 
+  // New method for customer appointments
+  async findByCustomerPaged(params: { customerId: string; page: number; perPage: number; status?: 'SCHEDULED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'; dateFrom?: Date; dateTo?: Date; }) {
+    const { customerId, page, perPage, status, dateFrom, dateTo } = params
+    const where: any = { customerId }
+    if (status) where.status = status
+    if (dateFrom || dateTo) where.startTime = { gte: dateFrom, lte: dateTo }
+
+    const [items, total] = await Promise.all([
+      prisma.appointment.findMany({
+        where,
+        include: {
+          customer: { select: { id: true, name: true, email: true, phone: true } },
+          service: { select: { id: true, name: true, durationMin: true, priceCents: true } },
+          barber: {
+            select: {
+              id: true,
+              user: { select: { id: true, name: true, email: true } },
+              barbershop: { select: { id: true, name: true } },
+            },
+          },
+          // Include review information to check if appointment has been reviewed
+          review: {
+            select: {
+              id: true
+            }
+          }
+        },
+        orderBy: { startTime: 'desc' },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+      prisma.appointment.count({ where }),
+    ])
+    return { items: items as any, total }
+  }
+
   async getBarberMonthlySummary(params: { barberId: string; monthStart: Date; monthEnd: Date }) {
     const { barberId, monthStart, monthEnd } = params
     const appts = await prisma.appointment.findMany({
@@ -158,4 +212,3 @@ export class PrismaAppointmentsRepository implements AppointmentsRepository {
     return appointment
   }
 }
-

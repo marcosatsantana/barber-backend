@@ -4,7 +4,7 @@ import { AppointmentsRepository } from '@/repositorys/barbers-repository'
 interface UpdateAppointmentStatusRequest {
   userId: string
   appointmentId: string
-  action: 'CONFIRM' | 'CANCEL'
+  action: 'CONFIRM' | 'CANCEL' | 'COMPLETE'
 }
 
 export class UpdateAppointmentStatusUseCase {
@@ -29,7 +29,21 @@ export class UpdateAppointmentStatusUseCase {
       throw new Error('Não é possível alterar o status deste agendamento')
     }
 
-    const newStatus = action === 'CONFIRM' ? 'CONFIRMED' : 'CANCELLED'
+    let newStatus: string;
+    switch (action) {
+      case 'CONFIRM':
+        newStatus = 'CONFIRMED';
+        break;
+      case 'CANCEL':
+        newStatus = 'CANCELLED';
+        break;
+      case 'COMPLETE':
+        newStatus = 'COMPLETED';
+        break;
+      default:
+        throw new Error('Ação inválida');
+    }
+
     const updated = await this.appointmentsRepository.updateStatus(appointmentId, newStatus)
     return { appointment: updated }
   }

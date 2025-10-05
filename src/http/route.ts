@@ -7,6 +7,7 @@ import { filtersRoutes } from './routes/filters'
 import { uploadsRoutes } from './routes/uploads'
 import { ownersRoutes } from './routes/owners'
 import { operatingHoursRoutes } from './routes/operating-hours'
+import { reviewsRoutes } from './routes/reviews'
 
 export async function appRoutes(app: FastifyInstance) {
   app.register(authRoutes, { prefix: '/auth' })
@@ -16,5 +17,6 @@ export async function appRoutes(app: FastifyInstance) {
   app.register(barbersRoutes, { prefix: '/barbers' })
   app.register(barbershopsRoutes, { prefix: '/barbershops' })
   app.register(appointmentsRoutes, { prefix: '/appointments' })
+  app.register(reviewsRoutes, { prefix: '/reviews' })
   app.register(operatingHoursRoutes)
 }
