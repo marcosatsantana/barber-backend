@@ -61,9 +61,9 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
   }
 
   async findManyNearby(
-    params: NearbySearchParams & { orderBy?: 'distance' | 'rating' | 'price' | 'popularity' },
-  ): Promise<BarbershopWithDetails[]> {
-    const { latitude, longitude, radiusInKm = 5, ratingMin, priceMin, priceMax, services, orderBy = 'distance' } = params
+    params: NearbySearchParams & { orderBy?: 'distance' | 'rating' | 'price' | 'popularity'; page?: number; perPage?: number },
+  ): Promise<{ items: BarbershopWithDetails[]; total: number }> {
+    const { latitude, longitude, radiusInKm = 5, ratingMin, priceMin, priceMax, services, orderBy = 'distance', page = 1, perPage = 6 } = params
 
     const sqlParts: string[] = []
     const values: any[] = []
@@ -157,6 +157,12 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
       sqlParts.push('HAVING ' + havingClauses.join(' AND '))
     }
 
+    // Preserve base (without ORDER/LIMIT) to compute total
+    const baseSql = sqlParts.join('\n')
+
+    // Total count query wraps the grouped query as subquery
+    const countSql = `SELECT COUNT(*)::int AS total FROM (${baseSql}) as sub`;
+
     // Order
     switch (orderBy) {
       case 'rating':
@@ -172,12 +178,18 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
         sqlParts.push('ORDER BY nbs.distance_in_km ASC')
     }
 
-    const sql = sqlParts.join('\n') + ';'
+    // Pagination
+    sqlParts.push(`LIMIT ${perPage} OFFSET ${(page - 1) * perPage}`)
 
-    const barbershops = await prisma.$queryRawUnsafe<BarbershopWithDetails[]>(
-      sql,
-      ...values,
-    )
+    const dataSql = sqlParts.join('\n') + ';'
+
+    const [countRows, barbershops] = await Promise.all([
+      prisma.$queryRawUnsafe<{ total: number }[]>(countSql, ...values),
+      prisma.$queryRawUnsafe<BarbershopWithDetails[]>(
+        dataSql,
+        ...values,
+      ),
+    ])
 
     // Sanitize potential BigInt/Decimal values from raw query
     const sanitize = (row: any) => {
@@ -197,12 +209,15 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
 
     const sanitized = (barbershops as any[]).map(sanitize)
 
-    return sanitized.map((shop: any) => ({
+    const items = sanitized.map((shop: any) => ({
       ...shop,
       price_from: shop.price_from !== null && shop.price_from !== undefined ? Number(shop.price_from) : null,
       averageRating: Number(shop.average_rating ?? shop.averageRating ?? 0),
       reviewCount: typeof shop.review_count !== 'undefined' ? Number(shop.review_count) : undefined,
     }))
+
+    const total = countRows?.[0]?.total ?? items.length
+    return { items, total }
   }
 
 }
