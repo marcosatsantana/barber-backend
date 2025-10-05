@@ -8,6 +8,7 @@ import { uploadsRoutes } from './routes/uploads'
 import { ownersRoutes } from './routes/owners'
 import { operatingHoursRoutes } from './routes/operating-hours'
 import { reviewsRoutes } from './routes/reviews'
+import { reverseGeocodeRoutes } from './routes/reverse-geocode';
 
 export async function appRoutes(app: FastifyInstance) {
   app.register(authRoutes, { prefix: '/auth' })
@@ -19,4 +20,5 @@ export async function appRoutes(app: FastifyInstance) {
   app.register(appointmentsRoutes, { prefix: '/appointments' })
   app.register(reviewsRoutes, { prefix: '/reviews' })
   app.register(operatingHoursRoutes)
+  app.register(reverseGeocodeRoutes);
 }
