@@ -8,6 +8,7 @@ import { ensuredOwner } from '../middlewares/ensured-owner'
 import { updateBarbershopFeaturesController } from '../controllers/barbershops/update-features.controller'
 import { updateBarbershopServicesController } from '../controllers/barbershops/update-services.controller'
 import { updateBarbershopController } from '../controllers/barbershops/update.controller'
+import { searchBarbershopsController } from '../controllers/barbershops/search.controller'
 
 export async function barbershopsRoutes(app: FastifyInstance) {
   app.post('/', { preHandler: [ensuredOwner] }, createBarbershopController)
@@ -15,6 +16,7 @@ export async function barbershopsRoutes(app: FastifyInstance) {
   app.put('/:id/features', { preHandler: [ensuredOwner] }, updateBarbershopFeaturesController)
   app.put('/:id/services', { preHandler: [ensuredOwner] }, updateBarbershopServicesController)
   app.get('/nearby', fetchNearbyBarbershopsController)
+  app.get('/search', searchBarbershopsController)
   app.get('/:id', getBarbershopController)
   app.get('/:id/barbers', getBarbersFromShopController)
   app.get('/:id/reviews', getBarbershopReviewsController)

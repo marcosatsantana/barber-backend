@@ -91,72 +91,57 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
 
     values.push(latitude, longitude, radiusInKm)
 
-    // Start main SELECT
+    // Start main SELECT - evitar duplicações de reviews/serviços usando subconsultas
     sqlParts.push(`
       SELECT 
         nbs.*,
-        MIN(s.price_cents) AS price_from,
-        COALESCE(ROUND(AVG(r.rating), 1), 0) AS average_rating,
-        COUNT(r.id) AS review_count
+        (
+          SELECT MIN(s.price_cents) 
+          FROM services s 
+          WHERE s.barbershop_id = nbs.id
+        ) AS price_from,
+        COALESCE(ROUND((
+          SELECT AVG(r.rating)::numeric FROM reviews r WHERE r.barbershop_id = nbs.id
+        ), 1), 0) AS average_rating,
+        (
+          SELECT COUNT(*) FROM reviews r WHERE r.barbershop_id = nbs.id
+        ) AS review_count
       FROM nearby_barbershops nbs
-      LEFT JOIN services s ON nbs.id = s.barbershop_id
-      LEFT JOIN reviews r ON nbs.id = r.barbershop_id
     `)
 
-    // WHERE filters (applied on joined rows)
+    // WHERE filters
     const whereClauses: string[] = []
+
+    // Filter by services (if provided) sem JOIN, via EXISTS para evitar duplicações
     if (services && services.length > 0) {
       const startIndex = values.length + 1
       const placeholders = services.map((_, idx) => `$${startIndex + idx}`)
-      whereClauses.push(`s.name IN (${placeholders.join(', ')})`)
+      whereClauses.push(`EXISTS (
+        SELECT 1 FROM services s 
+        WHERE s.barbershop_id = nbs.id AND s.name IN (${placeholders.join(', ')})
+      )`)
       values.push(...services)
     }
 
-    if (whereClauses.length > 0) {
-      sqlParts.push('WHERE ' + whereClauses.join(' AND '))
-    }
-
-    // Group by
-    sqlParts.push(`
-      GROUP BY 
-        nbs.id, 
-        nbs.name, 
-        nbs.description,
-        nbs.phone,
-        nbs.whatsapp,
-        nbs.street,
-        nbs.neighborhood,
-        nbs.city,
-        nbs.state,
-        nbs."zipCode",
-        nbs.latitude, 
-        nbs.longitude,
-        nbs."coverImageUrl",
-        nbs.created_at, 
-        nbs.updated_at, 
-        nbs.owner_id, 
-        nbs.distance_in_km
-    `)
-
-    // HAVING filters for aggregates
-    const havingClauses: string[] = []
+    // Filtros por rating e preço usando subconsultas em WHERE (substitui HAVING)
     if (typeof ratingMin === 'number') {
       const idx = values.length + 1
-      havingClauses.push(`COALESCE(AVG(r.rating), 0) >= $${idx}`)
+      whereClauses.push(`COALESCE((SELECT AVG(r.rating) FROM reviews r WHERE r.barbershop_id = nbs.id), 0) >= $${idx}`)
       values.push(ratingMin)
     }
     if (typeof priceMin === 'number') {
       const idx = values.length + 1
-      havingClauses.push(`MIN(s.price_cents) >= $${idx}`)
+      whereClauses.push(`(SELECT MIN(s.price_cents) FROM services s WHERE s.barbershop_id = nbs.id) >= $${idx}`)
       values.push(Math.round(priceMin * 100))
     }
     if (typeof priceMax === 'number') {
       const idx = values.length + 1
-      havingClauses.push(`MIN(s.price_cents) <= $${idx}`)
+      whereClauses.push(`(SELECT MIN(s.price_cents) FROM services s WHERE s.barbershop_id = nbs.id) <= $${idx}`)
       values.push(Math.round(priceMax * 100))
     }
-    if (havingClauses.length > 0) {
-      sqlParts.push('HAVING ' + havingClauses.join(' AND '))
+
+    if (whereClauses.length > 0) {
+      sqlParts.push('WHERE ' + whereClauses.join(' AND '))
     }
 
     // Preserve base (without ORDER/LIMIT) to compute total
@@ -168,13 +153,13 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
     // Order
     switch (orderBy) {
       case 'rating':
-        sqlParts.push('ORDER BY COALESCE(AVG(r.rating), 0) DESC, nbs.distance_in_km ASC')
+        sqlParts.push("ORDER BY COALESCE((SELECT AVG(r.rating) FROM reviews r WHERE r.barbershop_id = nbs.id), 0) DESC, nbs.distance_in_km ASC")
         break
       case 'price':
-        sqlParts.push('ORDER BY MIN(s.price_cents) ASC NULLS LAST, nbs.distance_in_km ASC')
+        sqlParts.push("ORDER BY (SELECT MIN(s.price_cents) FROM services s WHERE s.barbershop_id = nbs.id) ASC NULLS LAST, nbs.distance_in_km ASC")
         break
       case 'popularity':
-        sqlParts.push('ORDER BY COUNT(r.id) DESC, nbs.distance_in_km ASC')
+        sqlParts.push("ORDER BY (SELECT COUNT(*) FROM reviews r WHERE r.barbershop_id = nbs.id) DESC, nbs.distance_in_km ASC")
         break
       default:
         sqlParts.push('ORDER BY nbs.distance_in_km ASC')
@@ -222,6 +207,66 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
     return { items, total }
   }
 
-}
 
+  async searchNearbyByQuery(params: NearbySearchParams & { query: string; limit: number }) {
+    const { latitude, longitude, radiusInKm = 50, query, limit = 10 } = params as any
+
+    const q = `%${query.trim()}%`
+
+    const sql = `
+      WITH nearby_barbershops AS (
+        SELECT 
+          bs.*,
+          (6371 * acos(
+            cos(radians($1)) * cos(radians(CAST(bs.latitude AS double precision))) *
+            cos(radians(CAST(bs.longitude AS double precision)) - radians($2)) +
+            sin(radians($1)) * sin(radians(CAST(bs.latitude AS double precision)))
+          )) AS distance_in_km
+        FROM barbershops bs
+        WHERE (6371 * acos(
+          cos(radians($1)) * cos(radians(CAST(bs.latitude AS double precision))) *
+          cos(radians(CAST(bs.longitude AS double precision)) - radians($2)) +
+          sin(radians($1)) * sin(radians(CAST(bs.latitude AS double precision)))
+        )) <= $3
+      )
+      SELECT 
+        nbs.*,
+        (
+          SELECT MIN(s.price_cents) FROM services s WHERE s.barbershop_id = nbs.id
+        ) AS price_from,
+        COALESCE(ROUND((SELECT AVG(r.rating)::numeric FROM reviews r WHERE r.barbershop_id = nbs.id), 1), 0) AS average_rating,
+        (SELECT COUNT(*) FROM reviews r WHERE r.barbershop_id = nbs.id) AS review_count
+      FROM nearby_barbershops nbs
+      WHERE (
+        nbs.name ILIKE $4 OR 
+        nbs.description ILIKE $4 OR 
+        nbs.neighborhood ILIKE $4 OR 
+        EXISTS (
+          SELECT 1 FROM services s WHERE s.barbershop_id = nbs.id AND s.name ILIKE $4
+        )
+      )
+      ORDER BY nbs.distance_in_km ASC
+      LIMIT $5
+    `
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(sql, latitude, longitude, radiusInKm, q, Math.min(10, Math.max(1, limit)))
+
+    // Sanitize numerics
+    const sanitize = (row: any) => {
+      const out: any = {}
+      for (const [k, v] of Object.entries(row)) {
+        if (typeof v === 'bigint') {
+          out[k] = Number(v)
+        } else if (v && typeof v === 'object' && 'toNumber' in (v as any)) {
+          out[k] = (v as any).toNumber()
+        } else {
+          out[k] = v as any
+        }
+      }
+      return out
+    }
+
+    return (rows as any[]).map(sanitize)
+  }
+}
 
