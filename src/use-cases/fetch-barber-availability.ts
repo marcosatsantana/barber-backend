@@ -1,4 +1,5 @@
 import { BarbersRepository, AppointmentsRepository, BarberExceptionsRepository } from '../repositorys/barbers-repository'
+import { PrismaOperatingHoursRepository } from '@/prisma-operating-hours-repository'
 
 function toMinutes(timeHHmm: string): number {
   const [h, m] = timeHHmm.split(':').map(Number)
@@ -11,11 +12,11 @@ function fromMinutes(total: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-function addMinutes(date: Date, minutes: number): Date {
-  return new Date(date.getTime() + minutes * 60 * 1000)
-}
-
 export class FetchBarberAvailabilityUseCase {
+  private operatingHoursRepository = new PrismaOperatingHoursRepository()
+  // Offset de timezone (minutos). Padrão: -180 (UTC-3). Pode ser sobrescrito por env.
+  private tzOffsetMinutes = Number(process.env.TZ_OFFSET_MINUTES ?? process.env.APPOINTMENTS_TZ_OFFSET_MINUTES ?? -180)
+
   constructor(
     private barbersRepository: BarbersRepository,
     private appointmentsRepository: AppointmentsRepository,
@@ -27,66 +28,60 @@ export class FetchBarberAvailabilityUseCase {
     const barber = await this.barbersRepository.findById(barberId)
     if (!barber) return { slots: [] as string[] }
 
-    const target = new Date(`${date}T00:00:00.000Z`)
-    const dayOfWeek = target.getUTCDay()
+    // "date" representa o dia local; calcular início/fim do dia local em UTC
+    const [y, m, d] = date.split('-').map(Number) as [number, number, number]
+    const localDayStartUtc = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - this.tzOffsetMinutes * 60000)
+    const localDayEndUtc = new Date(localDayStartUtc.getTime() + 24 * 60 * 60 * 1000 - 1)
 
-    const shop = barber.barbershop
-    const operating = await (async () => {
-      // pull operating hours for shop and day
-      // We do not have a repository for operating hours; use prisma directly would break abstraction.
-      // Instead, rely on relation shape returned elsewhere; as not available, fallback to wide open 08:00-18:00
-      return null as unknown as { isClosed: boolean; openTime: string; closeTime: string } | null
-    })()
+    // Descobrir o dia da semana local
+    const dayOfWeekLocal = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
 
-    // Fallback: 08:00-18:00 if no schedule available
-    const openTime = operating?.isClosed ? null : (operating?.openTime ?? '08:00')
-    const closeTime = operating?.isClosed ? null : (operating?.closeTime ?? '18:00')
+    // Buscar horário de funcionamento do dia
+    const operatingHours = await this.operatingHoursRepository.findByBarbershopId(barber.barbershop.id)
+    const todays = operatingHours.find((h) => h.dayOfWeek === dayOfWeekLocal) || null
+
+    const isClosed = todays?.isClosed
+    const openTime = isClosed ? null : (todays?.openTime ?? '08:00')
+    const closeTime = isClosed ? null : (todays?.closeTime ?? '18:00')
     if (!openTime || !closeTime) return { slots: [] as string[] }
 
-    const dayStart = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate(), 0, 0, 0))
-    const dayEnd = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate(), 23, 59, 59, 999))
+    // Normalizar aos slots de 30min
+    const slotSizeMin = 30
+    const openMinRaw = toMinutes(openTime)
+    const closeMinRaw = toMinutes(closeTime)
+    const openMin = Math.ceil(openMinRaw / slotSizeMin) * slotSizeMin
+    const closeMin = Math.floor(closeMinRaw / slotSizeMin) * slotSizeMin
+    if (openMin >= closeMin) return { slots: [] as string[] }
 
+    // Buscar compromissos e exceções no range do dia (UTC)
     const [appointments, exceptions] = await Promise.all([
-      this.appointmentsRepository.findActivesByBarberBetween({ barberId, start: dayStart, end: dayEnd }),
-      this.exceptionsRepository.findByBarberOnDate({ barberId, date: dayStart }),
+      this.appointmentsRepository.findActivesByBarberBetween({ barberId, start: localDayStartUtc, end: localDayEndUtc }),
+      this.exceptionsRepository.findByBarberOnDate({ barberId, date: localDayStartUtc }),
     ])
 
-    const slotSizeMin = 30
-    const openMin = toMinutes(openTime)
-    const closeMin = toMinutes(closeTime)
-
+    // Bloqueios: converter horários UTC dos compromissos para minutos locais
     const blockedIntervals: Array<{ start: number; end: number }> = []
-
     for (const appt of appointments) {
-      if (appt.status !== 'CONFIRMED' && appt.status !== 'SCHEDULED') continue; // Só bloqueia horários confirmados
-      const startMin = Math.max(0, Math.floor((appt.startTime.getTime() - dayStart.getTime()) / 60000))
-      const endMin = Math.min(24 * 60, Math.ceil((appt.endTime.getTime() - dayStart.getTime()) / 60000))
+      const startMin = Math.max(0, Math.floor((appt.startTime.getTime() - localDayStartUtc.getTime()) / 60000))
+      const endMin = Math.min(24 * 60, Math.ceil((appt.endTime.getTime() - localDayStartUtc.getTime()) / 60000))
       blockedIntervals.push({ start: startMin, end: endMin })
     }
 
+    // Exceções são HH:mm locais; inserir diretamente
     for (const ex of exceptions) {
       const startMin = toMinutes(ex.startTime)
       const endMin = toMinutes(ex.endTime)
-      if (ex.isBlocked) {
-        blockedIntervals.push({ start: startMin, end: endMin })
-      } else {
-        // is an allowed extra window: shrink working window to intersection later; handle by marking all outside as blocked
-      }
+      if (ex.isBlocked) blockedIntervals.push({ start: startMin, end: endMin })
     }
 
-    // Build candidate slots
-    const candidateSlots: string[] = []
+    // Gerar slots
+    const slots: string[] = []
     for (let t = openMin; t + slotSizeMin <= closeMin; t += slotSizeMin) {
-      const slotStart = t
-      const slotEnd = t + slotSizeMin
-      // Check overlap with blocked intervals
-      const overlaps = blockedIntervals.some((bi) => Math.max(bi.start, slotStart) < Math.min(bi.end, slotEnd))
-      if (!overlaps) {
-        candidateSlots.push(fromMinutes(slotStart))
-      }
+      const overlaps = blockedIntervals.some((bi) => Math.max(bi.start, t) < Math.min(bi.end, t + slotSizeMin))
+      if (!overlaps) slots.push(fromMinutes(t))
     }
 
-    return { slots: candidateSlots }
+    return { slots }
   }
 }
 

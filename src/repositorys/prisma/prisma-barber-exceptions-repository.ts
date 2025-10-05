@@ -4,8 +4,9 @@ import { BarberExceptionsRepository } from '../barbers-repository'
 export class PrismaBarberExceptionsRepository implements BarberExceptionsRepository {
   async findByBarberOnDate(params: { barberId: string; date: Date }) {
     const { barberId, date } = params
-    const startOfDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0))
-    const endOfDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999))
+    // 'date' já é o início do dia local em UTC; preserve o range de 24h a partir dele
+    const startOfDay = new Date(date.getTime())
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000 - 1)
 
     const exceptions = await prisma.barberException.findMany({
       where: {
