@@ -20,8 +20,12 @@ export function buildApp() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   })
 
-  // Multipart for file uploads
-  app.register(multipart)
+  // Multipart for file uploads (aumenta limite para 15MB para evitar truncamentos)
+  app.register(multipart, {
+    limits: {
+      fileSize: 15 * 1024 * 1024,
+    },
+  })
 
   // Static files for uploads
   const uploadsDir = path.join(process.cwd(), 'uploads')
