@@ -10,14 +10,14 @@ export async function fetchNearbyBarbershopsController(req: FastifyRequest, repl
     ratingMin: z.coerce.number().min(0).max(5).optional(),
     priceMin: z.coerce.number().min(0).optional(),
     priceMax: z.coerce.number().min(0).optional(),
-    services: z.string().optional(), // CSV
+    features: z.string().optional(), // Keep only features filter
     orderBy: z.enum(['distance', 'rating', 'price', 'popularity']).optional(),
     page: z.coerce.number().int().min(1).default(1),
     perPage: z.coerce.number().int().min(1).max(50).default(6),
   })
 
-  const { latitude, longitude, radiusInKm, ratingMin, priceMin, priceMax, services, orderBy, page, perPage } = querySchema.parse(req.query)
-  const servicesList = services ? services.split(',').map((s) => s.trim()).filter(Boolean) : undefined
+  const { latitude, longitude, radiusInKm, ratingMin, priceMin, priceMax, features, orderBy, page, perPage } = querySchema.parse(req.query)
+  const featuresList = features ? features.split(',').map((f) => f.trim()).filter(Boolean) : undefined
 
   const useCase = makeFetchNearbyBarbershopsUseCase()
   const { barbershops, pagination } = await useCase.execute({
@@ -27,12 +27,10 @@ export async function fetchNearbyBarbershopsController(req: FastifyRequest, repl
     ratingMin,
     priceMin,
     priceMax,
-    services: servicesList,
+    features: featuresList,
     orderBy: orderBy ?? 'distance',
     page,
     perPage,
   })
   return reply.status(200).send({ barbershops, pagination })
 }
-
-

@@ -10,7 +10,7 @@ export type NearbySearchParams = Coordinates & {
   ratingMin?: number
   priceMin?: number
   priceMax?: number
-  services?: string[]
+  features?: string[] // Keep only features filter
 }
 
 export interface BarbershopsRepository {
@@ -36,5 +36,3 @@ export interface BarbershopsRepository {
 
   searchNearbyByQuery(params: NearbySearchParams & { query: string; limit: number }): Promise<Barbershop[]>
 }
-
-

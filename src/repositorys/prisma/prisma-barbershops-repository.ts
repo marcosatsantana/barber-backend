@@ -65,7 +65,7 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
   async findManyNearby(
     params: NearbySearchParams & { orderBy?: 'distance' | 'rating' | 'price' | 'popularity'; page?: number; perPage?: number },
   ): Promise<{ items: BarbershopWithDetails[]; total: number }> {
-    const { latitude, longitude, radiusInKm = 5, ratingMin, priceMin, priceMax, services, orderBy = 'distance', page = 1, perPage = 6 } = params
+    const { latitude, longitude, radiusInKm = 5, ratingMin, priceMin, priceMax, features, orderBy = 'distance', page = 1, perPage = 6 } = params
 
     const sqlParts: string[] = []
     const values: any[] = []
@@ -112,15 +112,16 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
     // WHERE filters
     const whereClauses: string[] = []
 
-    // Filter by services (if provided) sem JOIN, via EXISTS para evitar duplicações
-    if (services && services.length > 0) {
+    // Filter by features (if provided) via EXISTS
+    if (features && features.length > 0) {
       const startIndex = values.length + 1
-      const placeholders = services.map((_, idx) => `$${startIndex + idx}`)
+      const placeholders = features.map((_, idx) => `$${startIndex + idx}`)
       whereClauses.push(`EXISTS (
-        SELECT 1 FROM services s 
-        WHERE s.barbershop_id = nbs.id AND s.name IN (${placeholders.join(', ')})
+        SELECT 1 FROM barbershop_features bf 
+        JOIN features f ON bf.feature_id = f.id
+        WHERE bf.barbershop_id = nbs.id AND f.name IN (${placeholders.join(', ')})
       )`)
-      values.push(...services)
+      values.push(...features)
     }
 
     // Filtros por rating e preço usando subconsultas em WHERE (substitui HAVING)
@@ -240,10 +241,7 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
       WHERE (
         nbs.name ILIKE $4 OR 
         nbs.description ILIKE $4 OR 
-        nbs.neighborhood ILIKE $4 OR 
-        EXISTS (
-          SELECT 1 FROM services s WHERE s.barbershop_id = nbs.id AND s.name ILIKE $4
-        )
+        nbs.neighborhood ILIKE $4
       )
       ORDER BY nbs.distance_in_km ASC
       LIMIT $5

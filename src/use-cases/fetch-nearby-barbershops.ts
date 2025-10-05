@@ -7,7 +7,7 @@ interface FetchNearbyBarbershopsRequest {
   ratingMin?: number
   priceMin?: number
   priceMax?: number
-  services?: string[]
+  features?: string[] // Keep only features filter
   orderBy?: 'distance' | 'rating' | 'price' | 'popularity'
   page?: number
   perPage?: number
@@ -16,7 +16,7 @@ interface FetchNearbyBarbershopsRequest {
 export class FetchNearbyBarbershopsUseCase {
   constructor(private barbershopsRepository: BarbershopsRepository) {}
 
-  async execute({ latitude, longitude, radiusInKm, ratingMin, priceMin, priceMax, services, orderBy, page = 1, perPage = 6 }: FetchNearbyBarbershopsRequest) {
+  async execute({ latitude, longitude, radiusInKm, ratingMin, priceMin, priceMax, features, orderBy, page = 1, perPage = 6 }: FetchNearbyBarbershopsRequest) {
     const { items, total } = await this.barbershopsRepository.findManyNearby({
       latitude,
       longitude,
@@ -24,7 +24,7 @@ export class FetchNearbyBarbershopsUseCase {
       ratingMin,
       priceMin,
       priceMax,
-      services,
+      features, // Keep only features filter
       orderBy,
       page,
       perPage,
@@ -32,5 +32,3 @@ export class FetchNearbyBarbershopsUseCase {
     return { barbershops: items, pagination: { page, perPage, total, totalPages: Math.ceil(total / perPage) } }
   }
 }
-
-
