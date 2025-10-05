@@ -264,8 +264,8 @@ enum AppointmentStatus {
 // --- Favorites Table ---
 model UserFavorite {
   id          String   @id @default(uuid())
-  userId      String   @map("userId")
-  barbershopId String  @map("barbershopId")
+  userId      String   @map("user_id")
+  barbershopId String  @map("barbershop_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
   // Relations
