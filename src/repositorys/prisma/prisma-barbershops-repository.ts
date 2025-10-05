@@ -20,6 +20,7 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
     whatsapp?: string | null
     city?: string | null
     state?: string | null
+    neighborhood?: string | null
     zipCode?: string | null
     description?: string | null
   }) {
@@ -35,6 +36,7 @@ export class PrismaBarbershopsRepository implements BarbershopsRepository {
         whatsapp: data.whatsapp ?? null,
         city: data.city ?? null,
         state: data.state ?? null,
+        neighborhood: data.neighborhood ?? null,
         zipCode: data.zipCode ?? null,
         description: data.description ?? null,
       },

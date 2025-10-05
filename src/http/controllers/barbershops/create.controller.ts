@@ -14,6 +14,7 @@ export async function createBarbershopController(req: FastifyRequest, reply: Fas
     whatsapp: z.string().optional(),
     city: z.string().optional(),
     state: z.string().optional(),
+    neighborhood: z.string().optional(),
     zipCode: z.string().optional(),
     description: z.string().optional(),
   })

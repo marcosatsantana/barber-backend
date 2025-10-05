@@ -18,6 +18,7 @@ export async function updateBarbershopController(req: FastifyRequest, reply: Fas
     phone: z.string().optional(),
     whatsapp: z.string().optional(),
     street: z.string().optional(),
+    neighborhood: z.string().optional(),
     city: z.string().optional(),
     state: z.string().optional(),
     zipCode: z.string().optional(),
@@ -39,7 +40,7 @@ export async function updateBarbershopController(req: FastifyRequest, reply: Fas
 
   const basicUpdate: any = {}
   const basicFields: (keyof typeof payload)[] = [
-    'name','description','phone','whatsapp','street','city','state','zipCode','coverImageUrl'
+    'name','description','phone','whatsapp','street','neighborhood','city','state','zipCode','coverImageUrl'
   ]
   for (const key of basicFields) {
     if (typeof payload[key] !== 'undefined') {

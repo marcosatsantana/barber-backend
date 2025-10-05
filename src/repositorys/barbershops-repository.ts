@@ -25,6 +25,7 @@ export interface BarbershopsRepository {
     whatsapp?: string | null
     city?: string | null
     state?: string | null
+    neighborhood?: string | null
     zipCode?: string | null
     description?: string | null
   }): Promise<Barbershop>
