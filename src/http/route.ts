@@ -11,6 +11,7 @@ import { reviewsRoutes } from './routes/reviews'
 import { reverseGeocodeRoutes } from './routes/reverse-geocode';
 import { favoritesRoutes } from './routes/favorites';
 import { notificationsRoutes } from './routes/notifications';
+import { specialtiesRoutes } from './routes/specialties';
 
 export async function appRoutes(app: FastifyInstance) {
   app.register(authRoutes, { prefix: '/auth' })
@@ -25,4 +26,5 @@ export async function appRoutes(app: FastifyInstance) {
   app.register(reverseGeocodeRoutes);
   app.register(favoritesRoutes);
   app.register(notificationsRoutes);
+  app.register(specialtiesRoutes, { prefix: '/specialties' });
 }
