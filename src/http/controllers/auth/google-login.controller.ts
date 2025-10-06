@@ -61,7 +61,18 @@ export async function googleLoginController(req: FastifyRequest, reply: FastifyR
       // Update the user with the avatar URL
       finalUser = await prisma.user.update({
         where: { id: user.id },
-        data: { avatarUrl: picture },
+        data: { 
+          avatarUrl: picture,
+          isEmailVerified: true // PARA USUÁRIOS GOOGLE, EMAIL JÁ VERIFICADO
+        },
+      })
+    } else if (!user.isEmailVerified) {
+      // Se o usuário já existia mas o email não estava verificado, marcar como verificado
+      finalUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { 
+          isEmailVerified: true
+        },
       })
     }
 
@@ -81,6 +92,7 @@ export async function googleLoginController(req: FastifyRequest, reply: FastifyR
       phone: finalUser.phone,
       role: finalUser.role,
       avatarUrl: finalUser.avatarUrl || picture, // Use Google picture if user doesn't have avatar
+      isEmailVerified: finalUser.isEmailVerified // ADICIONADO: campo isEmailVerified
     }
 
     return reply.status(200).send({

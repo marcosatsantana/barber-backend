@@ -15,7 +15,9 @@ export async function registerController(req: FastifyRequest, reply: FastifyRepl
 
     const useCase = makeRegisterUserUseCase()
     const { user } = await useCase.execute({ name, email, password, phone })
-    const token = await reply.jwtSign({ sub: user.id, role: user.role }, { expiresIn: '7d' })
+    // Map the role to a valid JWT role
+    const jwtRole = user.role === 'BARBER' ? 'CUSTOMER' : user.role;
+    const token = await reply.jwtSign({ sub: user.id, role: jwtRole }, { expiresIn: '7d' })
     const safeUser = {
       id: user.id,
       name: user.name,
@@ -23,6 +25,7 @@ export async function registerController(req: FastifyRequest, reply: FastifyRepl
       phone: user.phone,
       role: user.role,
       avatarUrl: user.avatarUrl,
+      isEmailVerified: user.isEmailVerified // ADICIONADO: campo isEmailVerified
     }
 
     return reply.status(201).send({ user: safeUser, token })

@@ -14,7 +14,9 @@ export async function loginController(req: FastifyRequest, reply: FastifyReply) 
     const useCase = makeAuthenticateUserUseCase()
     const { user } = await useCase.execute({ email, password })
 
-    const token = await reply.jwtSign({ sub: user.id, role: user.role }, { expiresIn: '7d' })
+    // Map the role to a valid JWT role
+    const jwtRole = user.role === 'BARBER' ? 'CUSTOMER' : user.role;
+    const token = await reply.jwtSign({ sub: user.id, role: jwtRole }, { expiresIn: '7d' })
 
     const safeUser = {
       id: user.id,
@@ -23,6 +25,7 @@ export async function loginController(req: FastifyRequest, reply: FastifyReply) 
       phone: user.phone,
       role: user.role,
       avatarUrl: user.avatarUrl,
+      isEmailVerified: user.isEmailVerified // ADICIONADO: campo isEmailVerified
     }
 
     return reply.send({ user: safeUser, token })

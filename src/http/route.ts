@@ -12,6 +12,7 @@ import { reverseGeocodeRoutes } from './routes/reverse-geocode';
 import { favoritesRoutes } from './routes/favorites';
 import { notificationsRoutes } from './routes/notifications';
 import { specialtiesRoutes } from './routes/specialties';
+import { usersRoutes } from './routes/users'
 
 export async function appRoutes(app: FastifyInstance) {
   app.register(authRoutes, { prefix: '/auth' })
@@ -27,4 +28,5 @@ export async function appRoutes(app: FastifyInstance) {
   app.register(favoritesRoutes);
   app.register(notificationsRoutes);
   app.register(specialtiesRoutes, { prefix: '/specialties' });
+  app.register(usersRoutes, { prefix: '/users' })
 }

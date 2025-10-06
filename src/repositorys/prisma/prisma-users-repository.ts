@@ -16,6 +16,7 @@ export class PrismaUsersRepository implements UsersRepository {
         phone: data.phone ?? null,
         passwordHash: data.passwordHash,
         role: data.role ?? 'CUSTOMER',
+        isEmailVerified: false, // POR PADRÃO, EMAIL NÃO VERIFICADO PARA NOVOS USUÁRIOS
       },
     })
   }
