@@ -13,6 +13,14 @@ export type NearbySearchParams = Coordinates & {
   features?: string[] // Keep only features filter
 }
 
+export type BarbershopWithDetails = Barbershop & {
+  distance_in_km: number
+  price_from: number | null
+  averageRating: number
+  review_count?: number
+  is_open: boolean
+}
+
 export interface BarbershopsRepository {
   create(data: {
     name: string
@@ -32,7 +40,7 @@ export interface BarbershopsRepository {
 
   findById(id: string): Promise<Barbershop | null>
 
-  findManyNearby(params: NearbySearchParams & { orderBy?: 'distance' | 'rating' | 'price' | 'popularity'; page?: number; perPage?: number }): Promise<{ items: Barbershop[]; total: number }>
+  findManyNearby(params: NearbySearchParams & { orderBy?: 'distance' | 'rating' | 'price' | 'popularity'; page?: number; perPage?: number }): Promise<{ items: BarbershopWithDetails[]; total: number }>
 
-  searchNearbyByQuery(params: NearbySearchParams & { query: string; limit: number }): Promise<Barbershop[]>
+  searchNearbyByQuery(params: NearbySearchParams & { query: string; limit: number }): Promise<BarbershopWithDetails[]>
 }

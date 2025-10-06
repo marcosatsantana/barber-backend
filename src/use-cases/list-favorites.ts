@@ -80,7 +80,7 @@ interface BarbershopWithDetails {
   averageRating: number
   reviewCount: number
   distance_in_km: number | null
-  isOpen: boolean
+  is_open: boolean
   openUntil: string | null
   features: string[]
   workingHours: {
@@ -155,7 +155,7 @@ export class ListFavoritesUseCase {
       const now = new Date()
       const dayOfWeek = now.getDay() // 0-6
       const today = shop.workingHours?.find((w: { dayOfWeek: number }) => w.dayOfWeek === dayOfWeek)
-      let isOpen = false
+      let is_open = false
       let openUntil: string | null = null
       if (today && !today.isClosed) {
         const [oh, om] = today.openTime.split(':').map(Number)
@@ -163,8 +163,8 @@ export class ListFavoritesUseCase {
         const minutesNow = now.getHours() * 60 + now.getMinutes()
         const minutesOpen = oh * 60 + om
         const minutesClose = ch * 60 + cm
-        isOpen = minutesNow >= minutesOpen && minutesNow < minutesClose
-        openUntil = isOpen ? today.closeTime : null
+        is_open = minutesNow >= minutesOpen && minutesNow < minutesClose
+        openUntil = is_open ? today.closeTime : null
       }
 
       // Process images
@@ -201,7 +201,7 @@ export class ListFavoritesUseCase {
         averageRating,
         reviewCount,
         distance_in_km,
-        isOpen,
+        is_open,
         openUntil,
         features,
         workingHours: shop.workingHours ?? [],
