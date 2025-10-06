@@ -3,6 +3,12 @@ import { sendEmailVerificationController } from '../controllers/users/send-email
 import { verifyEmailCodeController } from '../controllers/users/verify-email-code.controller'
 
 export async function usersRoutes(app: FastifyInstance) {
-  app.post('/send-email-verification', sendEmailVerificationController)
+  // Set a longer timeout for email verification (60 seconds)
+  app.post('/send-email-verification', { 
+    config: { 
+      rateLimit: false 
+    }
+  }, sendEmailVerificationController)
+  
   app.post('/verify-email-code', verifyEmailCodeController)
 }

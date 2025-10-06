@@ -7,7 +7,11 @@ import path from 'path'
 import { appRoutes } from './http/route'
 
 export function buildApp() {
-  const app = Fastify()
+  const app = Fastify({
+    // Increase timeout for handling operations that may take longer
+    // Especially important for email operations in serverless environments
+    requestTimeout: 60000, // 60 seconds
+  })
 
   // JWT plugin
   app.register(fastifyJwt, {
@@ -16,11 +20,11 @@ export function buildApp() {
 
   // CORS plugin
   app.register(cors, {
-    origin: '*', // Em produção, restrinja para o seu domínio: 'https://meu-frontend.com'
+    origin: '*', // In production, restrict to your domain
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   })
 
-  // Multipart for file uploads (aumenta limite para 15MB para evitar truncamentos)
+  // Multipart for file uploads
   app.register(multipart, {
     limits: {
       fileSize: 15 * 1024 * 1024,
