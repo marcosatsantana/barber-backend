@@ -11,7 +11,7 @@
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
     "build": "tsup src --out-dir build",
-    "start": "node build/server.js",
+    "start": "node build/server.cjs",
     "test": "vitest",
     "test:run": "vitest run"
   },

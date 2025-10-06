@@ -3,32 +3,6 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import nodemailer from 'nodemailer'
 
-// Função para enviar email de forma assíncrona
-async function sendVerificationEmail(email: string, code: string) {
-  try {
-    // Configure Gmail SMTP transporter
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
-      }
-    });
-    
-    // Send email
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: email,
-      subject: 'Código de Verificação - Barbearia Mapa',
-      text: `Seu código de verificação é: ${code}\n\nEste código expira em 10 minutos.`
-    });
-    
-    console.log(`Verification code sent to ${email}: ${code}`);
-  } catch (emailError) {
-    console.error('Error sending email:', emailError)
-  }
-}
-
 export async function sendEmailVerificationController(req: FastifyRequest, reply: FastifyReply) {
   try {
     await req.jwtVerify()
@@ -67,13 +41,31 @@ export async function sendEmailVerificationController(req: FastifyRequest, reply
       }
     })
     
-    // Send email asynchronously without blocking the response
-    // This prevents timeouts in serverless environments like Render
-    setImmediate(() => {
-      sendVerificationEmail(email, verificationCode).catch(console.error)
-    })
+    // Send email with verification code using Gmail SMTP
+    try {
+      // Configure Gmail SMTP transporter
+      const transporter = nodemailer.createTransport({ // CORRIGIDO: createTransport em vez de createTransporter
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD
+        }
+      });
+      
+      // Send email
+      await transporter.sendMail({
+        from: process.env.GMAIL_USER,
+        to: email,
+        subject: 'Código de Verificação - Barbearia Mapa',
+        text: `Seu código de verificação é: ${verificationCode}\n\nEste código expira em 10 minutos.`
+      });
+      
+      console.log(`Verification code sent to ${email}: ${verificationCode}`);
+    } catch (emailError) {
+      console.error('Error sending email:', emailError)
+      // Continue with the response even if email fails
+    }
     
-    // Respond immediately to prevent timeout
     return reply.status(200).send({ 
       message: 'Código de verificação enviado com sucesso'
     })
