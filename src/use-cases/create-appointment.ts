@@ -1,5 +1,7 @@
 import { AppointmentsRepository } from '../repositorys/barbers-repository'
 import { BarbersRepository } from '../repositorys/barbers-repository'
+import { makeCreateNotificationUseCase } from './factories/make-create-notification-use-case'
+import { prisma } from '../lib/prisma'
 
 interface CreateAppointmentRequest {
   customerId: string
@@ -67,13 +69,15 @@ export class CreateAppointmentUseCase {
       endTime,
     })
 
+    // Send notification to barbershop owner
+    await this.sendNotificationToBarbershopOwner(barber.barbershopId, customerId, service.name, startTime)
+
     return { appointment }
   }
 
   private async validateService(serviceId: string, barbershopId: string) {
     // This would typically be done through a services repository
     // For now, we'll use a direct prisma call as a fallback
-    const { prisma } = await import('../lib/prisma')
     return await prisma.service.findFirst({
       where: {
         id: serviceId,
@@ -81,5 +85,46 @@ export class CreateAppointmentUseCase {
         isActive: true,
       },
     })
+  }
+
+  private async sendNotificationToBarbershopOwner(
+    barbershopId: string,
+    customerId: string,
+    serviceName: string,
+    appointmentTime: Date
+  ) {
+    try {
+      // Get barbershop with owner
+      const barbershop = await prisma.barbershop.findUnique({
+        where: { id: barbershopId },
+        include: { owner: true }
+      })
+
+      if (!barbershop || !barbershop.owner) {
+        return
+      }
+
+      // Get customer name
+      const customer = await prisma.user.findUnique({
+        where: { id: customerId }
+      })
+
+      const formattedTime = appointmentTime.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+
+      const createNotificationUseCase = makeCreateNotificationUseCase()
+      await createNotificationUseCase.execute({
+        userId: barbershop.owner.id,
+        type: 'booking_received',
+        title: 'Novo agendamento',
+        message: `Você recebeu um novo agendamento para ${serviceName} às ${formattedTime} por ${customer?.name || 'um cliente'}.`
+      })
+    } catch (error) {
+      console.error('Failed to send notification to barbershop owner:', error)
+    }
   }
 }
